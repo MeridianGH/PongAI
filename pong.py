@@ -16,7 +16,8 @@ white = (255, 255, 255)
 
 
 class Ball:
-    def __init__(self, x=windowwidth/2, y=windowheight/2, dir_x=1, dir_y=random.choice((-1, 1))):
+    def __init__(self, x=windowwidth/2-linethickness/2, y=windowheight/2-linethickness/2,
+                 dir_x=1, dir_y=random.choice((-1, 1))):
         self.x = x
         self.y = y
         self.dir_x = dir_x
