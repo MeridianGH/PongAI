@@ -18,7 +18,7 @@ white = (255, 255, 255)
 
 
 class Ball:
-    def __init__(self, x=windowwidth/2-linethickness/2, y=windowheight/2-linethickness/2,
+    def __init__(self, x=windowwidth / 2 - linethickness / 2, y=windowheight / 2 - linethickness / 2,
                  dir_x=1, dir_y=random.choice((-1, 1))):
         self.x = x
         self.y = y
@@ -50,20 +50,22 @@ class Ball:
             ai_paddle.game_over = True
 
     # Check for hit on paddle and add score.
-    def check_ball_hit(self, paddle_left, ai_paddle):
-        if self.dir_x == -1 and paddle_left.paddle.right == self.ball.left and \
-                paddle_left.paddle.top < self.ball.bottom and paddle_left.paddle.bottom > self.ball.top:
-            self.dir_x = self.dir_x * -1
-            paddle_left.score += 1
-        elif self.dir_x == 1 and ai_paddle.paddle.left == self.ball.right \
-                and ai_paddle.paddle.top < self.ball.bottom and ai_paddle.paddle.bottom > self.ball.top:
-            self.dir_x = self.dir_x * -1
-            ai_paddle.score += 1
+    def check_ball_hit(self, paddle):
+        if self.dir_x == -1:
+            if paddle.paddle.right == self.ball.left and \
+                    paddle.paddle.top < self.ball.bottom and paddle.paddle.bottom > self.ball.top:
+                self.dir_x = self.dir_x * -1
+                paddle.score += 1
+        elif self.dir_x == 1:
+            if paddle.paddle.left == self.ball.right \
+                    and paddle.paddle.top < self.ball.bottom and paddle.paddle.bottom > self.ball.top:
+                self.dir_x = self.dir_x * -1
+                paddle.score += 1
 
 
 # Left Paddle, Player or PC
 class PaddlePC:
-    def __init__(self, x=paddleoffset, y=windowheight/2-paddlesize/2, auto_play=True):
+    def __init__(self, x=paddleoffset, y=windowheight / 2 - paddlesize / 2, auto_play=True):
         self.paddle = pygame.Rect(x, y, linethickness, paddlesize)
         self.score = 0
         self.game_over = False
@@ -99,10 +101,10 @@ class PaddlePC:
                 self.paddle.y -= 1
 
 
-# Right paddle, currently just Computer, soon to be controlled by AI
+# Right paddle, controlled by AI
 class PaddleAI:
-    def __init__(self, x=windowwidth-linethickness-paddleoffset, y=windowheight/2-paddlesize/2):
-        self.paddle = pygame.Rect(x, y, 10, 50)
+    def __init__(self, x=windowwidth - linethickness - paddleoffset, y=windowheight / 2 - paddlesize / 2):
+        self.paddle = pygame.Rect(x, y, linethickness, paddlesize)
         self.score = 0
         self.game_over = False
 
@@ -137,14 +139,14 @@ class Arena:
         # Border
         pygame.draw.rect(disp, white, ((0, 0), (windowwidth, windowheight)), linethickness)
         # Center line
-        pygame.draw.line(disp, white, (int(windowwidth/2), 0),
-                         (int(windowwidth/2), windowheight), int(linethickness/4 + 1))
+        pygame.draw.line(disp, white, (int(windowwidth / 2), 0),
+                         (int(windowwidth / 2), windowheight), int(linethickness / 4 + 1))
 
     # Draw scores.
     @staticmethod
-    def display_score(paddle_left, ai_paddle):
+    def display_score(paddle_left):
         score1_surf = basicfont.render(str(paddle_left.score), True, white)
-        score2_surf = basicfont.render(str(ai_paddle.score), True, white)
+        score2_surf = basicfont.render(str(0), True, white)
         score1_rect = score1_surf.get_rect()
         score2_rect = score2_surf.get_rect()
         score1_rect.topleft = (150, 25)
@@ -174,15 +176,14 @@ class Arena:
         disp.blit(lost_surf, lost_rect)
 
 
-# Main game, used for testing.
+# Main game.
 def pong(genomes, config):
     # Initialize NEAT
     nets = []
     ge = []
     ai_paddles = []
-
-    for g in genomes:
-        net = neat.nn.FeedForwardNetwork(g, config, True)
+    for _, g in genomes:
+        net = neat.nn.FeedForwardNetwork.create(g, config)
         nets.append(net)
         ai_paddles.append(PaddleAI())
         g.fitness = 0
@@ -234,19 +235,36 @@ def pong(genomes, config):
         elif not paddle_left.game_over:
             paddle_left.move_player()
 
-        for x, ai_paddle in enumerate(ai_paddles):
-            if ai_paddle.game_over:
-                ai_paddle.score -= 1
+        if len(ai_paddles) > 0:
+            for x, ai_paddle in enumerate(ai_paddles):
+                if ai_paddle.game_over:
+                    ai_paddle.score -= 1
+                    ge[x].fitness = ai_paddle.score
+                    ai_paddles.pop(x)
+                    nets.pop(x)
+                    ge.pop(x)
+                    continue
+
+                output = nets[x].activate((ai_paddle.paddle.y, ball.x, ball.y, ball.dir_x, ball.dir_y))
+                if output[0] > 0.25:
+                    # Go up
+                    ai_paddle.paddle.y -= 1
+                elif output[0] < -0.25:
+                    # Go down
+                    ai_paddle.paddle.y += 1
+                elif -0.25 <= output[0] <= 0.25:
+                    # Stay
+                    ai_paddle.paddle.y += 0
+
+                ball.check_collision(paddle_left, ai_paddle)
+                ball.check_ball_hit(ai_paddle)
                 ge[x].fitness = ai_paddle.score
-                ai_paddles.pop(x)
-                nets.pop(x)
-                ge.pop(x)
-                continue
-            ai_paddle.move_ai(ball)
-            ball.check_collision(paddle_left, ai_paddle)
-            ball.check_ball_hit(paddle_left, ai_paddle)
-            ge[x].fitness = ai_paddle.score
-            ai_paddle.draw()
+                ai_paddle.draw()
+
+            ball.check_ball_hit(paddle_left)
+        else:
+            pygame.quit()
+            sys.exit()
 
         ball.move()
 
@@ -254,7 +272,7 @@ def pong(genomes, config):
         arena.draw()
         paddle_left.draw()
         ball.draw()
-        arena.display_score(paddle_left, ai_paddles[0])
+        arena.display_score(paddle_left)
 
         # Draw Game-Over-Screen.
         if paddle_left.game_over:
@@ -272,11 +290,11 @@ def run(config_path):
     p = neat.Population(config)
     
     p.add_reporter(neat.StdOutReporter(True))
-    stats = neat.StatisticsReporter
+    stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    
-    # winner = p.run(pong, 50)
-    
+
+    winner = p.run(pong, 50)
+
 
 if __name__ == '__main__':
     local_dir = os.path.dirname(__file__)
