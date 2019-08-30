@@ -1,7 +1,9 @@
 import pygame
 from pygame.locals import *
 import sys
+import os
 import random
+import neat
 
 fps = 144
 
@@ -35,28 +37,28 @@ class Ball:
         pygame.draw.rect(disp, white, self.ball)
 
     # Check for collisions with walls and set paddle-state.
-    def check_collision(self, paddle1, paddle2):
+    def check_collision(self, paddle_left, ai_paddle):
         if self.ball.top == linethickness / 2 or self.ball.bottom == (windowheight - linethickness / 2):
             self.dir_y = self.dir_y * -1
         elif self.ball.left == linethickness / 2:
             self.dir_x = 0
             self.dir_y = 0
-            paddle1.game_over = True
+            paddle_left.game_over = True
         elif self.ball.right == (windowwidth - linethickness / 2):
             self.dir_x = 0
             self.dir_y = 0
-            paddle2.game_over = True
+            ai_paddle.game_over = True
 
     # Check for hit on paddle and add score.
-    def check_ball_hit(self, paddle1, paddle2):
-        if self.dir_x == -1 and paddle1.paddle.right == self.ball.left and paddle1.paddle.top < self.ball.bottom and \
-                paddle1.paddle.bottom > self.ball.top:
+    def check_ball_hit(self, paddle_left, ai_paddle):
+        if self.dir_x == -1 and paddle_left.paddle.right == self.ball.left and \
+                paddle_left.paddle.top < self.ball.bottom and paddle_left.paddle.bottom > self.ball.top:
             self.dir_x = self.dir_x * -1
-            paddle1.score += 1
-        elif self.dir_x == 1 and paddle2.paddle.left == self.ball.right and paddle2.paddle.top < self.ball.bottom and \
-                paddle2.paddle.bottom > self.ball.top:
+            paddle_left.score += 1
+        elif self.dir_x == 1 and ai_paddle.paddle.left == self.ball.right \
+                and ai_paddle.paddle.top < self.ball.bottom and ai_paddle.paddle.bottom > self.ball.top:
             self.dir_x = self.dir_x * -1
-            paddle2.score += 1
+            ai_paddle.score += 1
 
 
 # Left Paddle, Player or PC
@@ -140,9 +142,9 @@ class Arena:
 
     # Draw scores.
     @staticmethod
-    def display_score(paddle1, paddle2):
-        score1_surf = basicfont.render(str(paddle1.score), True, white)
-        score2_surf = basicfont.render(str(paddle2.score), True, white)
+    def display_score(paddle_left, ai_paddle):
+        score1_surf = basicfont.render(str(paddle_left.score), True, white)
+        score2_surf = basicfont.render(str(ai_paddle.score), True, white)
         score1_rect = score1_surf.get_rect()
         score2_rect = score2_surf.get_rect()
         score1_rect.topleft = (150, 25)
@@ -173,7 +175,19 @@ class Arena:
 
 
 # Main game, used for testing.
-def main():
+def pong(genomes, config):
+    # Initialize NEAT
+    nets = []
+    ge = []
+    ai_paddles = []
+
+    for g in genomes:
+        net = neat.nn.FeedForwardNetwork(g, config, True)
+        nets.append(net)
+        ai_paddles.append(PaddleAI())
+        g.fitness = 0
+        ge.append(g)
+
     # Initialize game.
     pygame.init()
     global disp
@@ -186,14 +200,13 @@ def main():
 
     # Assign classes.
     arena = Arena()
-    paddle1 = PaddlePC()
-    paddle2 = PaddleAI()
+    paddle_left = PaddlePC()
     ball = Ball()
 
     # Draw all parts.
     arena.draw()
-    paddle1.draw()
-    paddle2.draw()
+    paddle_left.draw()
+    ai_paddles[0].draw()
     ball.draw()
 
     # Main game loop.
@@ -210,32 +223,41 @@ def main():
                         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                             break
                 if event.key == pygame.K_SPACE:
-                    if paddle1.auto_play:
-                        paddle1.auto_play = False
+                    if paddle_left.auto_play:
+                        paddle_left.auto_play = False
                     else:
-                        paddle1.auto_play = True
+                        paddle_left.auto_play = True
 
         # Move paddles.
-        if paddle1.auto_play:
-            paddle1.move_computer(ball)
-        elif not paddle1.game_over:
-            paddle1.move_player()
-        paddle2.move_ai(ball)
+        if paddle_left.auto_play:
+            paddle_left.move_computer(ball)
+        elif not paddle_left.game_over:
+            paddle_left.move_player()
 
-        # Move ball and check for collisions or hits.
+        for x, ai_paddle in enumerate(ai_paddles):
+            if ai_paddle.game_over:
+                ai_paddle.score -= 1
+                ge[x].fitness = ai_paddle.score
+                ai_paddles.pop(x)
+                nets.pop(x)
+                ge.pop(x)
+                continue
+            ai_paddle.move_ai(ball)
+            ball.check_collision(paddle_left, ai_paddle)
+            ball.check_ball_hit(paddle_left, ai_paddle)
+            ge[x].fitness = ai_paddle.score
+            ai_paddle.draw()
+
         ball.move()
-        ball.check_collision(paddle1, paddle2)
-        ball.check_ball_hit(paddle1, paddle2)
 
         # Draw all parts and display score.
         arena.draw()
-        paddle1.draw()
-        paddle2.draw()
+        paddle_left.draw()
         ball.draw()
-        arena.display_score(paddle1, paddle2)
+        arena.display_score(paddle_left, ai_paddles[0])
 
         # Draw Game-Over-Screen.
-        if paddle1.game_over:
+        if paddle_left.game_over:
             arena.game_over_screen(1)
 
         # Update the screen and tick the clock once.
@@ -243,5 +265,20 @@ def main():
         fpsclock.tick(fps)
 
 
+def run(config_path):
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, 
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
+
+    p = neat.Population(config)
+    
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter
+    p.add_reporter(stats)
+    
+    # winner = p.run(pong, 50)
+    
+
 if __name__ == '__main__':
-    main()
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, 'neat-config.txt')
+    run(config_path)
