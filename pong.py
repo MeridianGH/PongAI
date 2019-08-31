@@ -5,7 +5,7 @@ import os
 import random
 import neat
 
-fps = 144
+fps = 288
 
 windowwidth = 600
 windowheight = 400
@@ -37,17 +37,15 @@ class Ball:
         pygame.draw.rect(disp, white, self.ball)
 
     # Check for collisions with walls and set paddle-state.
-    def check_collision(self, paddle_left, ai_paddle):
+    def check_collision(self):
         if self.ball.top == linethickness / 2 or self.ball.bottom == (windowheight - linethickness / 2):
             self.dir_y = self.dir_y * -1
         elif self.ball.left == linethickness / 2:
             self.dir_x = 0
             self.dir_y = 0
-            paddle_left.game_over = True
         elif self.ball.right == (windowwidth - linethickness / 2):
             self.dir_x = 0
             self.dir_y = 0
-            ai_paddle.game_over = True
 
     # Check for hit on paddle and add score.
     def check_ball_hit(self, paddle):
@@ -55,17 +53,25 @@ class Ball:
             if paddle.paddle.right == self.ball.left and \
                     paddle.paddle.top < self.ball.bottom and paddle.paddle.bottom > self.ball.top:
                 self.dir_x = self.dir_x * -1
-                paddle.score += 1
         elif self.dir_x == 1:
             if paddle.paddle.left == self.ball.right \
                     and paddle.paddle.top < self.ball.bottom and paddle.paddle.bottom > self.ball.top:
                 self.dir_x = self.dir_x * -1
-                paddle.score += 1
 
 
-# Left Paddle, Player or PC
-class PaddlePC:
-    def __init__(self, x=paddleoffset, y=windowheight / 2 - paddlesize / 2, auto_play=True):
+class Paddle:
+    # Position for right paddle: x=windowwidth - linethickness - paddleoffset, y=windowheight / 2 - paddlesize / 2
+    # Position for left  paddle: x=paddleoffset, y=windowheight / 2 - paddlesize / 2
+    def __init__(self, position='right', auto_play=False):
+        if position == 'left':
+            x = paddleoffset
+            y = windowheight / 2 - paddlesize / 2
+        elif position == 'right':
+            x = windowwidth - linethickness - paddleoffset
+            y = windowheight / 2 - paddlesize / 2
+        else:
+            raise Exception('Position not defined!')
+        self.position = position
         self.paddle = pygame.Rect(x, y, linethickness, paddlesize)
         self.score = 0
         self.game_over = False
@@ -77,8 +83,30 @@ class PaddlePC:
             self.paddle.bottom = windowheight - linethickness / 2
         elif self.paddle.top < linethickness / 2:
             self.paddle.top = linethickness / 2
+        outline = pygame.Rect(self.paddle.x - 1, self.paddle.y - 1, linethickness + 2, linethickness + 2)
+        pygame.draw.rect(disp, black, outline)
         pygame.draw.rect(disp, white, self.paddle)
 
+    def check_game_over(self, ball):
+        if self.position == 'left' and ball.ball.left == linethickness / 2:
+            ball.dir_x = 0
+            ball.dir_y = 0
+            self.game_over = True
+        elif self.position == 'right' and ball.ball.right == (windowwidth - linethickness / 2):
+            ball.dir_x = 0
+            ball.dir_y = 0
+            self.game_over = True
+            
+    def check_score(self, ball):
+        if self.position == 'left':
+            if self.paddle.right == ball.ball.left and \
+                    self.paddle.top < ball.ball.bottom and self.paddle.bottom > ball.ball.top:
+                self.score += 1
+        elif self.position == 'right':
+            if self.paddle.left == ball.ball.right \
+                    and self.paddle.top < ball.ball.bottom and self.paddle.bottom > ball.ball.top:
+                self.score += 1
+        
     # Move player with arrow keys.
     def move_player(self):
         keys = pygame.key.get_pressed()
@@ -101,35 +129,6 @@ class PaddlePC:
                 self.paddle.y -= 1
 
 
-# Right paddle, controlled by AI
-class PaddleAI:
-    def __init__(self, x=windowwidth - linethickness - paddleoffset, y=windowheight / 2 - paddlesize / 2):
-        self.paddle = pygame.Rect(x, y, linethickness, paddlesize)
-        self.score = 0
-        self.game_over = False
-
-    # Draw the paddle to the screen.
-    def draw(self):
-        if self.paddle.bottom > windowheight - linethickness / 2:
-            self.paddle.bottom = windowheight - linethickness / 2
-        elif self.paddle.top < linethickness / 2:
-            self.paddle.top = linethickness / 2
-        pygame.draw.rect(disp, white, self.paddle)
-
-    # Move the paddle to follow the ball.
-    def move_ai(self, ball):
-        if ball.dir_x == -1:
-            if self.paddle.centery < (windowheight / 2):
-                self.paddle.y += 1
-            elif self.paddle.centery > (windowheight / 2):
-                self.paddle.y -= 1
-        elif ball.dir_x == 1:
-            if self.paddle.centery < ball.ball.centery:
-                self.paddle.y += 1
-            else:
-                self.paddle.y -= 1
-
-
 # Arena, draw background, scores and Game-Over-Screen.
 class Arena:
     # Draw arena lines.
@@ -144,9 +143,9 @@ class Arena:
 
     # Draw scores.
     @staticmethod
-    def display_score(paddle_left):
+    def display_score(paddle_left, paddle_ai):
         score1_surf = basicfont.render(str(paddle_left.score), True, white)
-        score2_surf = basicfont.render(str(0), True, white)
+        score2_surf = basicfont.render(str(paddle_ai.score), True, white)
         score1_rect = score1_surf.get_rect()
         score2_rect = score2_surf.get_rect()
         score1_rect.topleft = (150, 25)
@@ -181,11 +180,13 @@ def pong(genomes, config):
     # Initialize NEAT
     nets = []
     ge = []
-    ai_paddles = []
+    paddles_ai = []
+    balls = []
     for _, g in genomes:
         net = neat.nn.FeedForwardNetwork.create(g, config)
         nets.append(net)
-        ai_paddles.append(PaddleAI())
+        paddles_ai.append(Paddle())
+        balls.append(Ball())
         g.fitness = 0
         ge.append(g)
 
@@ -201,13 +202,13 @@ def pong(genomes, config):
 
     # Assign classes.
     arena = Arena()
-    paddle_left = PaddlePC()
+    paddle_left = Paddle(position='left', auto_play=True)
     ball = Ball()
 
     # Draw all parts.
     arena.draw()
     paddle_left.draw()
-    ai_paddles[0].draw()
+    paddles_ai[0].draw()
     ball.draw()
 
     # Main game loop.
@@ -229,50 +230,53 @@ def pong(genomes, config):
                     else:
                         paddle_left.auto_play = True
 
-        # Move paddles.
-        if paddle_left.auto_play:
-            paddle_left.move_computer(ball)
-        elif not paddle_left.game_over:
-            paddle_left.move_player()
+        if len(paddles_ai) > 0:
+            arena.draw()
 
-        if len(ai_paddles) > 0:
-            for x, ai_paddle in enumerate(ai_paddles):
-                if ai_paddle.game_over:
-                    ai_paddle.score -= 1
-                    ge[x].fitness = ai_paddle.score
-                    ai_paddles.pop(x)
-                    nets.pop(x)
-                    ge.pop(x)
-                    continue
+            if paddle_left.auto_play:
+                paddle_left.move_computer(balls[0])
+            elif not paddle_left.game_over:
+                paddle_left.move_player()
+            paddle_left.draw()
+            paddle_left.check_game_over(balls[0])
+            paddle_left.check_score(balls[0])
 
-                output = nets[x].activate((ai_paddle.paddle.y, ball.x, ball.y, ball.dir_x, ball.dir_y))
+            for x, paddle_ai in enumerate(paddles_ai):
+                output = nets[x].activate((paddle_ai.paddle.y, ball.x, ball.y, ball.dir_x, ball.dir_y))
                 if output[0] > 0.25:
                     # Go up
-                    ai_paddle.paddle.y -= 1
+                    paddle_ai.paddle.y -= 1
                 elif output[0] < -0.25:
                     # Go down
-                    ai_paddle.paddle.y += 1
+                    paddle_ai.paddle.y += 1
                 elif -0.25 <= output[0] <= 0.25:
                     # Stay
-                    ai_paddle.paddle.y += 0
+                    paddle_ai.paddle.y += 0
+                paddle_ai.draw()
 
-                ball.check_collision(paddle_left, ai_paddle)
-                ball.check_ball_hit(ai_paddle)
-                ge[x].fitness = ai_paddle.score
-                ai_paddle.draw()
+                balls[x].check_ball_hit(paddle_ai)
+                balls[x].check_ball_hit(paddle_left)
+                paddle_ai.check_score(balls[x])
+                paddle_ai.check_game_over(balls[x])
+                ge[x].fitness = paddle_ai.score
 
-            ball.check_ball_hit(paddle_left)
+                balls[x].check_collision()
+                balls[x].move()
+                balls[x].draw()
+
+                arena.display_score(paddle_left, paddles_ai[0])
+
+                if paddle_ai.game_over:
+                    paddle_ai.score -= 1
+                    ge[x].fitness = paddle_ai.score
+                    paddles_ai.pop(x)
+                    nets.pop(x)
+                    balls.pop(x)
+                    ge.pop(x)
+                    continue
         else:
-            pygame.quit()
-            sys.exit()
-
-        ball.move()
-
-        # Draw all parts and display score.
-        arena.draw()
-        paddle_left.draw()
-        ball.draw()
-        arena.display_score(paddle_left)
+            paddle_left.score = 0
+            break
 
         # Draw Game-Over-Screen.
         if paddle_left.game_over:
