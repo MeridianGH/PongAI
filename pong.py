@@ -83,7 +83,7 @@ class Paddle:
             self.paddle.bottom = windowheight - linethickness / 2
         elif self.paddle.top < linethickness / 2:
             self.paddle.top = linethickness / 2
-        outline = pygame.Rect(self.paddle.x - 1, self.paddle.y - 1, linethickness + 2, linethickness + 2)
+        outline = pygame.Rect(self.paddle.x, self.paddle.y - 1, linethickness, linethickness + 2)
         pygame.draw.rect(disp, black, outline)
         pygame.draw.rect(disp, white, self.paddle)
 
@@ -287,9 +287,9 @@ def pong(genomes, config):
         fpsclock.tick(fps)
 
 
-def run(config_path):
+def run(config):
     config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, 
-                                neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation, config)
 
     p = neat.Population(config)
     
@@ -298,6 +298,7 @@ def run(config_path):
     p.add_reporter(stats)
 
     winner = p.run(pong, 50)
+    print(winner)
 
 
 if __name__ == '__main__':
