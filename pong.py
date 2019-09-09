@@ -182,8 +182,8 @@ class Arena:
     # Draw Game-Over-Screen.
     @staticmethod
     def game_over_screen(player):
-        game_over_font = pygame.font.Font('freesansbold.ttf', 90)
-        lost_font = pygame.font.Font('freesansbold.ttf', 45)
+        game_over_font = pygame.font.Font(resource_path('freesansbold.ttf'), 90)
+        lost_font = pygame.font.Font(resource_path('freesansbold.ttf'), 45)
         box = pygame.Rect(0, 0, width / 2, height / 2)
         box.center = (width / 2, height / 2)
         game_surf = game_over_font.render('GAME', True, black)
@@ -226,7 +226,7 @@ def pong(genomes, config):
     global basicfont, basicfontsize
     global auto_play_state
     basicfontsize = 20
-    basicfont = pygame.font.Font('freesansbold.ttf', basicfontsize)
+    basicfont = pygame.font.Font(resource_path('freesansbold.ttf'), basicfontsize)
     fpsclock = pygame.time.Clock()
     disp = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Pong')
@@ -320,7 +320,8 @@ def pong(genomes, config):
                     balls.pop(x)
                     ge.pop(x)
                     continue
-                elif paddle_ai.score >= 20:
+                elif paddle_ai.score >= 10:
+                    ge[x].fitness -= 1
                     paddles_ai.pop(x)
                     nets.pop(x)
                     balls.pop(x)
@@ -346,11 +347,9 @@ def pong(genomes, config):
 
 
 def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(relative_path)
 
 
 def start_ai(config):
@@ -367,11 +366,6 @@ def start_ai(config):
     print(winner)
 
 
-print('hi')
-input()
 if __name__ == '__main__':
-    input()
-    config_path = resource_path(os.path.dirname(os.path.abspath(__file__))) + '\\neat-config.txt'
-    print(config_path)
-    input()
+    config_path = resource_path('neat-config.txt')
     start_ai(config_path)

@@ -126,3 +126,4 @@ dmypy.json
 pong_old.py
 pong_backup.py
 icon.ico
+output/
