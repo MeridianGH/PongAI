@@ -228,6 +228,8 @@ def pong(genomes, config):
     basicfontsize = 20
     basicfont = pygame.font.Font(resource_path('freesansbold.ttf'), basicfontsize)
     fpsclock = pygame.time.Clock()
+    icon = pygame.image.load(resource_path('exe/icon.png'))
+    pygame.display.set_icon(icon)
     disp = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Pong')
     run = True
@@ -282,6 +284,9 @@ def pong(genomes, config):
             paddle_left.check_game_over(balls[0])
             paddle_left.check_score(balls[0])
 
+            balls[0].draw()
+            balls[-1].draw()
+
             fitness_list = []
             for x, paddle_ai in enumerate(paddles_ai):
                 output = nets[x].activate((paddle_ai.paddle.y, balls[x].x, balls[x].y, balls[x].dir_x, balls[x].dir_y))
@@ -308,7 +313,6 @@ def pong(genomes, config):
 
                 balls[x].check_collision()
                 balls[x].move()
-                balls[x].draw()
 
                 best_score = paddles_ai[0]
                 fitness_list.append(ge[x].fitness)
