@@ -123,7 +123,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-pong_old.py
-pong_backup.py
-icon.ico
-exe/
