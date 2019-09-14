@@ -273,7 +273,7 @@ def pong(genomes, config):
                         paddle_left.auto_play = True
                         auto_play_state = True
 
-        if len(paddles_ai) > 0:
+        if len(paddles_ai) > 0 and not paddle_left.game_over:
             arena.draw()
 
             if paddle_left.auto_play:
