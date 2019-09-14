@@ -1,2 +1,0 @@
-pyinstaller -y -F -i "C:/Users/lukas/Documents/GitHub/PongAI/exe/icon.ico" --add-data "C:/Users/lukas/Documents/GitHub/PongAI/neat-config.txt";"." --add-data "C:/Users/lukas/Documents/GitHub/PongAI/freesansbold.ttf";"." --add-data "C:/Users/lukas/Documents/GitHub/PongAI/exe/icon.png";"./exe" -p C:/Users/lukas/Documents/GitHub/PongAI/venv/Lib/site-packages  "C:/Users/lukas/Documents/GitHub/PongAI/pong.py"
-pause
