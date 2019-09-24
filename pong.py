@@ -337,13 +337,11 @@ def pong(genomes, config):
             arena.display_text('Gen: ' + str(gen), (50, 25), 'topleft')
             arena.display_text('Paddles: ' + str(len(paddles_ai)),
                                (50, height - linethickness/2 - 25), 'bottomleft')
+        elif paddle_left.game_over:
+            arena.game_over_screen(1)
         else:
             paddle_left.score = 0
             break
-
-        # Draw Game-Over-Screen.
-        if paddle_left.game_over:
-            arena.game_over_screen(1)
 
         # Update the screen and tick the clock once.
         pygame.display.update()
