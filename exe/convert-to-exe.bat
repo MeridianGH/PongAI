@@ -1,0 +1,3 @@
+@echo off
+pyinstaller -y -F -i "%USERPROFILE%/Documents/GitHub/PongAI/exe/icon.ico" --add-data "%USERPROFILE%/Documents/GitHub/PongAI/neat-config.txt";"." --add-data "%USERPROFILE%/Documents/GitHub/PongAI/freesansbold.ttf";"." --add-data "%USERPROFILE%/Documents/GitHub/PongAI/exe/icon.png";"./exe" -p %USERPROFILE%/Documents/GitHub/PongAI/venv/Lib/site-packages --hidden-import pygame  "%USERPROFILE%/Documents/GitHub/PongAI/pong.py"
+pause
